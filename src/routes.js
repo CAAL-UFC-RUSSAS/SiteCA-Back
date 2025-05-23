@@ -1,15 +1,19 @@
 const express = require('express');
+const router = express.Router();
 const AuthController = require('./controllers/AuthController');
+const produtosRoutes = require('./routes/produtos');
 const authMiddleware = require('./middleware/authMiddleware');
 
-const routes = express.Router();
+// Rotas de autenticação
+router.post('/register', AuthController.register);
+router.post('/login', AuthController.login);
 
-routes.post('/register', AuthController.register);
-routes.post('/login', AuthController.login);
+// Rotas de produtos
+router.use(produtosRoutes);
 
-routes.get('/private', authMiddleware, (req, res) => {
+router.get('/private', authMiddleware, (req, res) => {
   console.log(req.userId);
   return res.json({ message: `Hello User ${req.userId}` });
 });
 
-module.exports = routes;
+module.exports = router;
