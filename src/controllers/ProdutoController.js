@@ -84,6 +84,15 @@ module.exports = {
             base64Data = data;
           }
 
+          // VALIDAÇÃO DE TAMANHO: Converter base64 para buffer e verificar tamanho
+          const imagemBuffer = Buffer.from(base64Data, 'base64');
+          const tamanhoMB = imagemBuffer.length / (1024 * 1024); // Converter para MB
+          const LIMITE_MB = 10;
+          
+          if (tamanhoMB > LIMITE_MB) {
+            throw new Error(`Imagem muito grande. Tamanho máximo: ${LIMITE_MB}MB. Tamanho atual: ${tamanhoMB.toFixed(2)}MB`);
+          }
+
           imagem_mime = mimeType;
           const extensao = mimeType.split('/')[1];
           
@@ -94,12 +103,11 @@ module.exports = {
           
           // Salvar a imagem
           const imagemPath = path.join(UPLOADS_DIR, imagem_nome);
-          const imagemBuffer = Buffer.from(base64Data, 'base64');
           
           console.log('Salvando imagem:', {
             nome: imagem_nome,
             mime: imagem_mime,
-            tamanho: imagemBuffer.length,
+            tamanho: `${tamanhoMB.toFixed(2)}MB`,
             caminho: imagemPath
           });
           
@@ -110,14 +118,14 @@ module.exports = {
           const stats = await fs.stat(imagemPath);
           console.log('Arquivo verificado:', {
             nome: imagem_nome,
-            tamanho: stats.size,
+            tamanho: `${(stats.size / (1024 * 1024)).toFixed(2)}MB`,
             criado: stats.birthtime,
             modificado: stats.mtime
           });
           
           // Verificar se o arquivo pode ser lido
           const fileContent = await fs.readFile(imagemPath);
-          console.log('Arquivo pode ser lido, tamanho:', fileContent.length);
+          console.log('Arquivo pode ser lido, tamanho:', `${(fileContent.length / (1024 * 1024)).toFixed(2)}MB`);
         } catch (error) {
           console.error('Erro ao processar imagem:', error);
           throw new Error('Erro ao processar imagem: ' + error.message);
@@ -176,12 +184,20 @@ module.exports = {
       let imagem_nome = produto.imagem_nome;
       
       if (imagem && imagem_mime) {
-        // Gerar nome único para o arquivo
-        imagem_nome = `${Date.now()}-${Math.random().toString(36).substring(7)}.${imagem_mime.split('/')[1]}`;
-        
         // Decodificar base64 e salvar arquivo
         const base64Data = imagem.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
+        
+        // VALIDAÇÃO DE TAMANHO: Verificar se a imagem não excede 10MB
+        const tamanhoMB = buffer.length / (1024 * 1024);
+        const LIMITE_MB = 10;
+        
+        if (tamanhoMB > LIMITE_MB) {
+          throw new Error(`Imagem muito grande. Tamanho máximo: ${LIMITE_MB}MB. Tamanho atual: ${tamanhoMB.toFixed(2)}MB`);
+        }
+        
+        // Gerar nome único para o arquivo
+        imagem_nome = `${Date.now()}-${Math.random().toString(36).substring(7)}.${imagem_mime.split('/')[1]}`;
         
         // Garantir que a pasta uploads existe
         try {
@@ -204,7 +220,7 @@ module.exports = {
         // Salvar o novo arquivo
         const filePath = path.join(UPLOADS_DIR, imagem_nome);
         await fs.writeFile(filePath, buffer);
-        console.log('Novo arquivo salvo em:', filePath);
+        console.log('Novo arquivo salvo em:', filePath, `- Tamanho: ${tamanhoMB.toFixed(2)}MB`);
       }
 
       const produtoAtualizado = await Produto.update(id, {

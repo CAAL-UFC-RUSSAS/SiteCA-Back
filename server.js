@@ -26,9 +26,9 @@ function setupMiddleware() {
         }));
     }
     
-    // Configurar parsing de dados
-    app.use(express.json({ limit: '50mb' }));
-    app.use(express.urlencoded({ limit: '50mb', extended: true }));
+    // Configurar parsing de dados - LIMITE DE 10MB PARA IMAGENS
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
     // Middleware para log de requisições (apenas em desenvolvimento)
     if (process.env.NODE_ENV !== 'production') {
