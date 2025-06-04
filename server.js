@@ -12,9 +12,24 @@ const bannersPath = path.join(__dirname, 'uploads', 'banners');
 
 // Configurações de middleware
 function setupMiddleware() {
-    // Configurar CORS - permitir todas as origens
+    // Configurar CORS com base em variável de ambiente
+    const allowedOrigins = process.env.ALLOWED_ORIGINS 
+      ? process.env.ALLOWED_ORIGINS.split(',') 
+      : ['*']; // Default para permitir todas as origens
+    
     app.use(cors({
-        origin: '*',
+        origin: function(origin, callback) {
+            // Permitir requisições sem origin (como mobile apps ou curl)
+            if (!origin) return callback(null, true);
+            
+            // Verificar se a origem está na lista de permitidos
+            if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+                callback(null, true);
+            } else {
+                console.log('Origem bloqueada pelo CORS:', origin);
+                callback(new Error('Não permitido pela política de CORS'));
+            }
+        },
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true,
@@ -53,6 +68,10 @@ function setupMiddleware() {
 
 // Configurar rota para servir arquivos de upload
 function setupFileRoutes() {
+    // URL base para imagens
+    const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3333}`;
+    console.log(`🔗 URL base para imagens: ${BASE_URL}`);
+    
     // Rota para arquivos gerais
     app.get('/uploads/:filename', async (req, res) => {
         const filename = req.params.filename;
@@ -61,11 +80,9 @@ function setupFileRoutes() {
         try {
             await fs.access(filePath);
             
-            // Configurar headers de cache
+            // Configurar headers de cache e CORS
             res.set({
-                'Cache-Control': 'no-store',
-                'Pragma': 'no-cache',
-                'Expires': '0',
+                'Cache-Control': 'public, max-age=86400', // Cache por 24 horas
                 'Access-Control-Allow-Origin': '*'
             });
             
@@ -75,7 +92,9 @@ function setupFileRoutes() {
                 '.jpg': 'image/jpeg',
                 '.jpeg': 'image/jpeg',
                 '.png': 'image/png',
-                '.gif': 'image/gif'
+                '.gif': 'image/gif',
+                '.webp': 'image/webp',
+                '.pdf': 'application/pdf'
             };
             res.set('Content-Type', mimeTypes[ext] || 'application/octet-stream');
             
@@ -94,11 +113,9 @@ function setupFileRoutes() {
         try {
             await fs.access(filePath);
             
-            // Configurar headers de cache
+            // Configurar headers de cache e CORS
             res.set({
-                'Cache-Control': 'no-store',
-                'Pragma': 'no-cache',
-                'Expires': '0',
+                'Cache-Control': 'public, max-age=86400', // Cache por 24 horas
                 'Access-Control-Allow-Origin': '*'
             });
             
@@ -108,7 +125,8 @@ function setupFileRoutes() {
                 '.jpg': 'image/jpeg',
                 '.jpeg': 'image/jpeg',
                 '.png': 'image/png',
-                '.gif': 'image/gif'
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
             };
             res.set('Content-Type', mimeTypes[ext] || 'application/octet-stream');
             

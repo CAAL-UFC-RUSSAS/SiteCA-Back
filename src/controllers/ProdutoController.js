@@ -5,12 +5,22 @@ const path = require('path');
 // Definir o caminho da pasta uploads
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
 
+// URL base para imagens - usar variável de ambiente ou fallback para localhost
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3333';
+
 module.exports = {
   // Listar todos os produtos
   async index(req, res) {
     try {
       const produtos = await Produto.findAll();
-      return res.json(produtos);
+      
+      // Adicionar URLs completas para as imagens
+      const produtosComUrl = produtos.map(produto => ({
+        ...produto,
+        imagem_url: produto.imagem_nome ? `${BASE_URL}/uploads/${produto.imagem_nome}` : null
+      }));
+      
+      return res.json(produtosComUrl);
     } catch (error) {
       console.error('Erro ao listar produtos:', error);
       return res.status(500).json({ error: 'Erro interno do servidor' });
@@ -27,7 +37,13 @@ module.exports = {
         return res.status(404).json({ error: 'Produto não encontrado' });
       }
 
-      return res.json(produto);
+      // Adicionar URL completa para a imagem
+      const produtoComUrl = {
+        ...produto,
+        imagem_url: produto.imagem_nome ? `${BASE_URL}/uploads/${produto.imagem_nome}` : null
+      };
+
+      return res.json(produtoComUrl);
     } catch (error) {
       console.error('Erro ao buscar produto:', error);
       return res.status(500).json({ error: 'Erro interno do servidor' });
@@ -149,7 +165,7 @@ module.exports = {
       // Adicionar a URL da imagem na resposta
       const produtoComUrl = {
         ...produto,
-        imagem_url: imagem_nome ? `http://localhost:3333/uploads/${imagem_nome}` : null
+        imagem_url: imagem_nome ? `${BASE_URL}/uploads/${imagem_nome}` : null
       };
       
       console.log('Produto criado com sucesso:', produtoComUrl);
@@ -234,7 +250,13 @@ module.exports = {
         quantidade
       });
 
-      return res.json(produtoAtualizado);
+      // Adicionar URL completa para a imagem
+      const produtoComUrl = {
+        ...produtoAtualizado,
+        imagem_url: produtoAtualizado.imagem_nome ? `${BASE_URL}/uploads/${produtoAtualizado.imagem_nome}` : null
+      };
+
+      return res.json(produtoComUrl);
     } catch (error) {
       console.error('Erro ao atualizar produto:', error);
       return res.status(500).json({ error: 'Erro interno do servidor' });

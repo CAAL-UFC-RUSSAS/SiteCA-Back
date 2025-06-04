@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: cacc-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BASE_URL
+        sync: false # variável que precisa ser definida manualmente
+      - key: ALLOWED_ORIGINS
+        sync: false # variável que precisa ser definida manualmente
+      - key: JWT_SECRET
+        sync: false # variável que precisa ser definida manualmente
+      - key: DB_HOST
+        sync: false # variável que precisa ser definida manualmente
+      - key: DB_USER
+        sync: false # variável que precisa ser definida manualmente
+      - key: DB_PASS
+        sync: false # variável que precisa ser definida manualmente
+      - key: DB_NAME
+        sync: false # variável que precisa ser definida manualmente 
