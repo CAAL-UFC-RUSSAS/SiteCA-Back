@@ -1,59 +1,63 @@
 // Middleware para validar tamanho de imagens
 const MAX_IMAGE_SIZE_MB = 10;
 
-function validateImageSize(req, res, next) {
-    try {
-        const { imagem } = req.body;
-        
-        // Se não há imagem, prossegue
-        if (!imagem) {
-            return next();
-        }
-        
-        // Verificar se é string válida
+module.exports = (req, res, next) => {
+    const { imagens } = req.body;
+
+    // Se não houver imagens, permitir a requisição
+    if (!imagens) {
+        return next();
+    }
+
+    // Verificar se imagens é um array
+    if (!Array.isArray(imagens)) {
+        return res.status(400).json({ error: 'O campo imagens deve ser um array' });
+    }
+
+    // Verificar se há mais de 8 imagens
+    if (imagens.length > 8) {
+        return res.status(400).json({ error: 'Máximo de 8 imagens permitidas por produto' });
+    }
+
+    // Verificar cada imagem
+    for (const imagem of imagens) {
+        // Verificar se a imagem está em formato base64
         if (typeof imagem !== 'string') {
-            return res.status(400).json({ 
-                error: 'Formato de imagem inválido' 
-            });
+            return res.status(400).json({ error: 'Formato de imagem inválido' });
         }
-        
-        // Extrair dados base64
+
+        // Se a imagem não começar com data:, assumir que é base64 puro
         let base64Data = imagem;
+        let mimeType = 'image/png'; // Tipo padrão para PNG
+
         if (imagem.startsWith('data:')) {
+            // Extrair os dados da imagem
             const [header, data] = imagem.split(',');
             if (!header || !data) {
-                return res.status(400).json({ 
-                    error: 'Formato de imagem inválido' 
-                });
+                return res.status(400).json({ error: 'Formato de imagem inválido' });
+            }
+
+            // Extrair o tipo MIME
+            const mimeMatch = header.match(/data:([^;]+);/);
+            if (mimeMatch) {
+                mimeType = mimeMatch[1];
             }
             base64Data = data;
         }
-        
-        // Calcular tamanho
-        const buffer = Buffer.from(base64Data, 'base64');
-        const tamanhoMB = buffer.length / (1024 * 1024);
-        
-        // Validar limite
-        if (tamanhoMB > MAX_IMAGE_SIZE_MB) {
-            return res.status(413).json({ 
-                error: `Imagem muito grande. Tamanho máximo: ${MAX_IMAGE_SIZE_MB}MB. Tamanho atual: ${tamanhoMB.toFixed(2)}MB`
-            });
-        }
-        
-        // Adicionar informação do tamanho no req para uso posterior
-        req.imageInfo = {
-            tamanhoMB: tamanhoMB.toFixed(2)
-        };
-        
-        console.log(`✅ Imagem validada: ${tamanhoMB.toFixed(2)}MB (limite: ${MAX_IMAGE_SIZE_MB}MB)`);
-        next();
-        
-    } catch (error) {
-        console.error('Erro na validação de imagem:', error);
-        return res.status(400).json({ 
-            error: 'Erro ao validar imagem: ' + error.message 
-        });
-    }
-}
 
-module.exports = validateImageSize; 
+        // Verificar se o tipo MIME é uma imagem
+        if (!mimeType.startsWith('image/')) {
+            return res.status(400).json({ error: 'Tipo de arquivo inválido. Apenas imagens são permitidas' });
+        }
+
+        // Verificar tamanho da imagem
+        const tamanhoBytes = Math.ceil((base64Data.length * 3) / 4);
+        const tamanhoMB = tamanhoBytes / (1024 * 1024);
+
+        if (tamanhoMB > MAX_IMAGE_SIZE_MB) {
+            return res.status(400).json({ error: `Imagem muito grande. Tamanho máximo: ${MAX_IMAGE_SIZE_MB}MB. Tamanho atual: ${tamanhoMB.toFixed(2)}MB` });
+        }
+    }
+
+    next();
+}; 

@@ -7,8 +7,8 @@ exports.up = function(knex) {
     table.text('descricao');
     table.string('link');
     table.string('tipo').notNullable().defaultTo('principal'); // principal, lateral, promocional
-    table.string('imagem_nome');
-    table.string('imagem_mime');
+    table.text('imagem_base64').notNullable(); // Armazena a imagem em base64
+    table.string('imagem_mime').notNullable();
     table.integer('posicao').defaultTo(0);
     table.boolean('ativo').defaultTo(true);
     table.timestamps(true, true);

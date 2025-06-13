@@ -13,4 +13,7 @@ router.post('/produtos', authMiddleware, imageValidator, ProdutoController.store
 router.put('/produtos/:id', authMiddleware, imageValidator, ProdutoController.update);
 router.delete('/produtos/:id', authMiddleware, ProdutoController.destroy);
 
+// Rota para reordenar imagens
+router.post('/produtos/:id/reordenar-imagens', authMiddleware, ProdutoController.reordenarImagens);
+
 module.exports = router; 

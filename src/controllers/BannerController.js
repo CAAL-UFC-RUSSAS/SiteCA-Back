@@ -1,9 +1,4 @@
 const Banner = require('../models/Banner');
-const fs = require('fs').promises;
-const path = require('path');
-
-// Definir o caminho da pasta banners
-const BANNERS_DIR = path.join(__dirname, '..', '..', 'uploads', 'banners');
 
 module.exports = {
   // Listar todos os banners
@@ -14,10 +9,10 @@ module.exports = {
       
       console.log(`📋 ${banners.length} banners encontrados`);
       
-      // Adicionar URL completa para cada banner
+      // Adicionar URL da imagem em base64 para cada banner
       const bannersComUrl = banners.map(banner => ({
         ...banner,
-        imagem_url: banner.imagem_nome ? `${req.protocol}://${req.get('host')}/uploads/banners/${banner.imagem_nome}` : null
+        imagem_url: banner.imagem_base64 ? `data:${banner.imagem_mime};base64,${banner.imagem_base64}` : null
       }));
       
       return res.json(bannersComUrl);
@@ -35,10 +30,10 @@ module.exports = {
       
       console.log(`📋 ${banners.length} banners ativos encontrados`);
       
-      // Adicionar URL completa para cada banner
+      // Adicionar URL da imagem em base64 para cada banner
       const bannersComUrl = banners.map(banner => ({
         ...banner,
-        imagem_url: banner.imagem_nome ? `${req.protocol}://${req.get('host')}/uploads/banners/${banner.imagem_nome}` : null
+        imagem_url: banner.imagem_base64 ? `data:${banner.imagem_mime};base64,${banner.imagem_base64}` : null
       }));
       
       return res.json(bannersComUrl);
@@ -58,10 +53,10 @@ module.exports = {
         return res.status(404).json({ error: 'Banner não encontrado' });
       }
 
-      // Adicionar URL da imagem
+      // Adicionar URL da imagem em base64
       const bannerComUrl = {
         ...banner,
-        imagem_url: banner.imagem_nome ? `${req.protocol}://${req.get('host')}/uploads/banners/${banner.imagem_nome}` : null
+        imagem_url: banner.imagem_base64 ? `data:${banner.imagem_mime};base64,${banner.imagem_base64}` : null
       };
 
       return res.json(bannerComUrl);
@@ -76,16 +71,7 @@ module.exports = {
     try {
       const { titulo, descricao, link, tipo, ativo, posicao, imagem } = req.body;
       
-      // Verificar se a pasta de banners existe
-      try {
-        await fs.access(BANNERS_DIR);
-        console.log('Pasta banners já existe em:', BANNERS_DIR);
-      } catch {
-        await fs.mkdir(BANNERS_DIR, { recursive: true });
-        console.log('Pasta banners criada em:', BANNERS_DIR);
-      }
-      
-      let imagem_nome = null;
+      let imagem_base64 = null;
       let imagem_mime = null;
       
       if (imagem) {
@@ -117,18 +103,7 @@ module.exports = {
           }
           
           imagem_mime = mimeType;
-          const extensao = mimeType.split('/')[1];
-          
-          // Gerar nome único para o arquivo
-          const timestamp = Date.now();
-          const randomStr = Math.random().toString(36).substring(7);
-          imagem_nome = `banner-${timestamp}-${randomStr}.${extensao}`;
-          
-          // Salvar a imagem
-          const imagemPath = path.join(BANNERS_DIR, imagem_nome);
-          
-          await fs.writeFile(imagemPath, imagemBuffer);
-          console.log('Banner salvo com sucesso em:', imagemPath);
+          imagem_base64 = base64Data;
         } catch (error) {
           console.error('Erro ao processar imagem do banner:', error);
           throw new Error('Erro ao processar imagem: ' + error.message);
@@ -140,7 +115,7 @@ module.exports = {
         descricao,
         link,
         tipo: tipo || 'principal',
-        imagem_nome,
+        imagem_base64,
         imagem_mime,
         posicao: posicao || 0,
         ativo: ativo !== undefined ? ativo : true
@@ -149,7 +124,7 @@ module.exports = {
       // Adicionar a URL da imagem na resposta
       const bannerComUrl = {
         ...banner,
-        imagem_url: imagem_nome ? `${req.protocol}://${req.get('host')}/uploads/banners/${imagem_nome}` : null
+        imagem_url: banner.imagem_base64 ? `data:${banner.imagem_mime};base64,${banner.imagem_base64}` : null
       };
       
       res.status(201).json(bannerComUrl);
@@ -171,7 +146,7 @@ module.exports = {
         return res.status(404).json({ error: 'Banner não encontrado' });
       }
 
-      let imagem_nome = banner.imagem_nome;
+      let imagem_base64 = banner.imagem_base64;
       let imagem_mime = banner.imagem_mime;
       
       if (imagem) {
@@ -202,31 +177,8 @@ module.exports = {
             throw new Error(`Imagem muito grande. Limite: ${LIMITE_MB}MB. Atual: ${tamanhoMB.toFixed(2)}MB`);
           }
           
-          // Se houver uma imagem anterior, excluí-la
-          if (banner.imagem_nome) {
-            try {
-              const imagemAnteriorPath = path.join(BANNERS_DIR, banner.imagem_nome);
-              await fs.unlink(imagemAnteriorPath);
-              console.log('Imagem anterior excluída:', imagemAnteriorPath);
-            } catch (error) {
-              console.error('Erro ao excluir imagem anterior:', error);
-              // Não interrompe o fluxo em caso de erro na exclusão
-            }
-          }
-          
           imagem_mime = mimeType;
-          const extensao = mimeType.split('/')[1];
-          
-          // Gerar nome único para o arquivo
-          const timestamp = Date.now();
-          const randomStr = Math.random().toString(36).substring(7);
-          imagem_nome = `banner-${timestamp}-${randomStr}.${extensao}`;
-          
-          // Salvar a imagem
-          const imagemPath = path.join(BANNERS_DIR, imagem_nome);
-          
-          await fs.writeFile(imagemPath, imagemBuffer);
-          console.log('Banner atualizado com sucesso em:', imagemPath);
+          imagem_base64 = base64Data;
         } catch (error) {
           console.error('Erro ao processar imagem do banner:', error);
           throw new Error('Erro ao processar imagem: ' + error.message);
@@ -238,7 +190,7 @@ module.exports = {
         descricao: descricao !== undefined ? descricao : banner.descricao,
         link: link !== undefined ? link : banner.link,
         tipo: tipo !== undefined ? tipo : banner.tipo,
-        imagem_nome,
+        imagem_base64,
         imagem_mime,
         posicao: posicao !== undefined ? posicao : banner.posicao,
         ativo: ativo !== undefined ? ativo : banner.ativo
@@ -247,7 +199,7 @@ module.exports = {
       // Adicionar a URL da imagem na resposta
       const bannerComUrl = {
         ...bannerAtualizado,
-        imagem_url: imagem_nome ? `${req.protocol}://${req.get('host')}/uploads/banners/${imagem_nome}` : null
+        imagem_url: bannerAtualizado.imagem_base64 ? `data:${bannerAtualizado.imagem_mime};base64,${bannerAtualizado.imagem_base64}` : null
       };
       
       res.json(bannerComUrl);
@@ -265,18 +217,6 @@ module.exports = {
 
       if (!banner) {
         return res.status(404).json({ error: 'Banner não encontrado' });
-      }
-
-      // Excluir a imagem associada, se existir
-      if (banner.imagem_nome) {
-        try {
-          const imagemPath = path.join(BANNERS_DIR, banner.imagem_nome);
-          await fs.unlink(imagemPath);
-          console.log('Imagem excluída:', imagemPath);
-        } catch (error) {
-          console.error('Erro ao excluir imagem:', error);
-          // Não interrompe o fluxo em caso de erro na exclusão
-        }
       }
 
       await Banner.delete(id);
