@@ -23,6 +23,7 @@ module.exports = {
         const camposPersonalizados = await ProdutoCampoPersonalizado.findByProdutoId(produto.id);
         return {
           ...produto,
+          tags: JSON.parse(produto.tags || '[]'),
           imagens: imagens.map(imagem => ({
             id: imagem.id,
             url: `data:${imagem.imagem_mime};base64,${imagem.imagem_base64}`,
@@ -49,12 +50,18 @@ module.exports = {
         return res.status(404).json({ error: 'Produto não encontrado' });
       }
 
+      console.log('=== DEBUG BACKEND SHOW ===');
+      console.log('Produto do banco:', produto);
+      console.log('Tipo das tags:', typeof produto.tags);
+      console.log('Valor das tags:', produto.tags);
+
       // Buscar imagens do produto
       const imagens = await ProdutoImagem.findByProdutoId(produto.id);
       const camposPersonalizados = await ProdutoCampoPersonalizado.findByProdutoId(produto.id);
       
       const produtoComImagens = {
         ...produto,
+        tags: JSON.parse(produto.tags || '[]'),
         imagens: imagens.map(imagem => ({
           id: imagem.id,
           url: `data:${imagem.imagem_mime};base64,${imagem.imagem_base64}`,
@@ -62,6 +69,11 @@ module.exports = {
         })),
         campos_personalizados: camposPersonalizados
       };
+
+      console.log('Produto processado:', produtoComImagens);
+      console.log('Tipo das tags após processamento:', typeof produtoComImagens.tags);
+      console.log('Valor das tags após processamento:', produtoComImagens.tags);
+      console.log('========================');
 
       return res.json(produtoComImagens);
     } catch (error) {
