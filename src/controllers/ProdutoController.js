@@ -22,7 +22,7 @@ module.exports = {
         const imagens = await ProdutoImagem.findByProdutoId(produto.id);
         const camposPersonalizados = await ProdutoCampoPersonalizado.findByProdutoId(produto.id);
         return {
-          ...produto,
+        ...produto,
           tags: JSON.parse(produto.tags || '[]'),
           imagens: imagens.map(imagem => ({
             id: imagem.id,
@@ -133,7 +133,7 @@ module.exports = {
               });
             }
           }
-        }
+          }
 
         // Inserir campos personalizados
         if (Array.isArray(campos_personalizados) && campos_personalizados.length > 0) {
@@ -169,7 +169,7 @@ module.exports = {
           imagens: imagensProduto,
           campos_personalizados: camposPersonalizados
         });
-      } catch (error) {
+        } catch (error) {
         await trx.rollback();
         throw error;
       }
@@ -228,7 +228,7 @@ module.exports = {
             }
           }
         }
-
+        
         // Atualizar campos personalizados
         await trx('produto_campos_personalizados').where('produto_id', id).delete();
         if (Array.isArray(campos_personalizados) && campos_personalizados.length > 0) {
@@ -242,7 +242,7 @@ module.exports = {
                 opcoes: campo.opcoes ? JSON.stringify(campo.opcoes) : null,
                 valor: campo.valor || ''
               });
-            }
+      }
           }
         }
 
