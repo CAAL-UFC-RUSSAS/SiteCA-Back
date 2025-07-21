@@ -7,6 +7,8 @@ const avisosRoutes = require('./routes/avisos');
 const calendarioRoutes = require('./routes/calendario');
 const emailRoutes = require('./routes/email');
 const financeiroRoutes = require('./routes/financeiro');
+const membrosRoutes = require('./routes/membros');
+const projetosRoutes = require('./routes/projetos');
 const authMiddleware = require('./middleware/authMiddleware');
 
 // Rotas de autenticação
@@ -30,6 +32,12 @@ router.use('/email', emailRoutes);
 
 // Rotas financeiras
 router.use('/financeiro', financeiroRoutes);
+
+// Rotas de membros da gestão
+router.use(membrosRoutes);
+
+// Rotas de projetos de campanha
+router.use(projetosRoutes);
 
 // Rota direta para testes de contato
 const EmailController = require('./controllers/EmailController');
