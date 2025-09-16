@@ -1,52 +1,70 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const https = require('https');
+
+// Configuração para ignorar verificação SSL (necessário para o site da UFC)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 class CalendarioController {
+  /**
+   * Faz uma requisição HTTP para o site da UFC com configurações adequadas
+   */
+  async fazerRequisicaoUFC(url) {
+    return await axios.get(url, {
+      httpsAgent: httpsAgent,
+      timeout: 10000, // 10 segundos de timeout
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+  }
+
   /**
    * Busca e extrai o calendário acadêmico da UFC
    * Usando função de seta para preservar o contexto do 'this'
    */
   getCalendarioUFC = async (req, res) => {
     try {
-      // URL do calendário acadêmico da UFC para o ano atual ou o próximo
       const anoAtual = new Date().getFullYear();
-      let url = `https://www.ufc.br/calendario-universitario/${anoAtual}`;
       
-      // Primeiro tenta o ano atual, se não der certo, tenta o próximo ano
-      try {
-        // Faz a requisição para o site da UFC
-        const response = await axios.get(url);
-        if (response.status === 200) {
-          // Extrair os eventos do HTML
-          const eventos = this.extrairEventosDoHTMLUFC(response.data);
-          return res.json(eventos);
+      // Tenta buscar o calendário para diferentes anos (atual, próximo, anterior)
+      const anosParaTentar = [anoAtual, anoAtual + 1, anoAtual - 1];
+      
+      for (const ano of anosParaTentar) {
+        try {
+          const url = `https://www.ufc.br/calendario-universitario/${ano}`;
+          console.log(`Tentando buscar calendário para o ano ${ano}...`);
+          
+          const response = await this.fazerRequisicaoUFC(url);
+          
+          if (response.status === 200) {
+            // Extrair os eventos do HTML
+            const eventos = this.extrairEventosDoHTMLUFC(response.data);
+            
+            // Se encontrou eventos válidos, retorna
+            if (eventos && eventos.length > 0) {
+              console.log(`Calendário encontrado para o ano ${ano} com ${eventos.length} eventos`);
+              return res.json(eventos);
+            }
+          }
+        } catch (errorAno) {
+          console.log(`Erro ao buscar calendário para o ano ${ano}:`, errorAno.message);
+          // Continua para o próximo ano
         }
-      } catch (errorAtual) {
-        console.log(`Calendário do ano atual (${anoAtual}) não encontrado, tentando próximo ano...`);
-        // Se não encontrar o calendário do ano atual, tenta o próximo ano
-        url = `https://www.ufc.br/calendario-universitario/${anoAtual + 1}`;
-      }
-
-      // Tenta buscar o calendário do próximo ano
-      const response = await axios.get(url);
-      
-      if (response.status !== 200) {
-        return res.status(500).json({ 
-          error: 'Erro ao buscar calendário', 
-          message: `Status code: ${response.status}` 
-        });
       }
       
-      // Extrair os eventos do HTML
-      const eventos = this.extrairEventosDoHTMLUFC(response.data);
+      // Se chegou até aqui, não conseguiu buscar nenhum calendário
+      console.log('Não foi possível buscar o calendário de nenhum ano, usando dados de fallback');
+      const eventosFallback = this.getCalendarioUFCFallback();
+      return res.json(eventosFallback);
       
-      return res.json(eventos);
     } catch (error) {
-      console.error('Erro ao buscar calendário da UFC:', error);
-      return res.status(500).json({ 
-        error: 'Erro ao buscar calendário', 
-        message: error.message 
-      });
+      console.error('Erro geral ao buscar calendário da UFC:', error);
+      // Em caso de erro geral, retorna dados de fallback
+      const eventosFallback = this.getCalendarioUFCFallback();
+      return res.json(eventosFallback);
     }
   }
   
@@ -77,18 +95,19 @@ class CalendarioController {
                 const tituloColuna = $(colunas[1]).text().trim();
                 
                 if (dataColuna && tituloColuna) {
-                  // Processar a data (dia e mês)
-                  const diaMatch = dataColuna.match(/(\d+)/);
-                  const dia = diaMatch ? diaMatch[1].padStart(2, '0') : null;
-                  
-                  if (dia) {
-                    // Extrair o mês e ano da string do cabeçalho
-                    const mesAno = this.extrairMesAno(mes);
-                    if (mesAno) {
-                      const { mes: mesNumero, ano } = mesAno;
-                      // Criar data
-                      const dataString = `${ano}-${mesNumero}-${dia}`;
-                      const dataObj = new Date(dataString);
+                  // Extrair o mês e ano da string do cabeçalho
+                  const mesAno = this.extrairMesAno(mes);
+                  if (mesAno) {
+                    const { mes: mesNumero, ano } = mesAno;
+                    
+                    // Processar diferentes formatos de data
+                    const dias = this.processarDiferentesFormatosData(dataColuna);
+                    
+                    // Processar cada dia encontrado
+                    dias.forEach(dia => {
+                      // Criar data usando o construtor com valores numéricos para evitar problemas de timezone
+                      // Mês em JavaScript é 0-indexed, então subtraímos 1
+                      const dataObj = new Date(parseInt(ano), parseInt(mesNumero) - 1, parseInt(dia));
                       
                       if (!isNaN(dataObj.getTime())) {
                         const dataFormatada = dataObj.toLocaleDateString('pt-BR', {
@@ -110,7 +129,7 @@ class CalendarioController {
                           tipo: 'ufc'
                         });
                       }
-                    }
+                    });
                   }
                 }
               }
@@ -138,6 +157,57 @@ class CalendarioController {
     }
   }
   
+  /**
+   * Processa diferentes formatos de data encontrados na coluna
+   * Exemplos: "22", "22 e 25", "22 a 25"
+   */
+  processarDiferentesFormatosData(dataColuna) {
+    const dias = [];
+    
+    // Limpar a string de data
+    const dataLimpa = dataColuna.trim();
+    
+    // Padrão para intervalo: "22 a 25"
+    const intervaloMatch = dataLimpa.match(/(\d+)\s+a\s+(\d+)/);
+    if (intervaloMatch) {
+      const inicio = parseInt(intervaloMatch[1]);
+      const fim = parseInt(intervaloMatch[2]);
+      
+      // Gerar todos os dias do intervalo
+      for (let dia = inicio; dia <= fim; dia++) {
+        dias.push(dia);
+      }
+      return dias;
+    }
+    
+    // Padrão para datas separadas: "22 e 25"
+    const datasSeparadasMatch = dataLimpa.match(/(\d+)\s+e\s+(\d+)/);
+    if (datasSeparadasMatch) {
+      dias.push(parseInt(datasSeparadasMatch[1]));
+      dias.push(parseInt(datasSeparadasMatch[2]));
+      return dias;
+    }
+    
+    // Padrão para múltiplas datas separadas por vírgula: "22, 25, 30"
+    const multiplasDatasMatch = dataLimpa.match(/(\d+(?:\s*,\s*\d+)*)/);
+    if (multiplasDatasMatch) {
+      const numeros = dataLimpa.match(/\d+/g);
+      if (numeros) {
+        numeros.forEach(num => dias.push(parseInt(num)));
+        return dias;
+      }
+    }
+    
+    // Padrão para data única: "22"
+    const dataUnicaMatch = dataLimpa.match(/(\d+)/);
+    if (dataUnicaMatch) {
+      dias.push(parseInt(dataUnicaMatch[1]));
+      return dias;
+    }
+    
+    return dias;
+  }
+
   /**
    * Extrai o mês e ano de uma string no formato "Mês de Ano"
    */
